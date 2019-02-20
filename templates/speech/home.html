@@ -1,0 +1,20 @@
+{% extends "speech/header.html" %}
+{% block content %}
+{% load static %}
+<div class="container">
+    <br>
+    <p class="center h2 text-center">Hello and welcome to <b>AudioML!</b></p>
+    <br>
+    <p class="center text-center">AudioML is a machine learning experiment, which detects the user's spoken language
+        (Hebrew or English), and uses the data to train itself.
+        <br><br>
+        To start, click the button below:
+    </p>
+    <br>
+    <div class="col text-center">
+        <input type="image" src="{% static 'go.png' %}" alt="Let's Go!" height="128px" onclick="window.location.href='{% url 'record' %}'">
+
+    </div>
+</div>
+
+{% endblock %}

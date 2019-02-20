@@ -1,0 +1,25 @@
+{% extends "speech/header.html" %}
+{% block content %}
+{% load static %}
+
+<div class="container">
+    <br>
+    <p class="center h4 text-center" id="correct_text">I knew it!</p>
+    <br>
+    <p class="h4 text-center">So far I got <b>{{c_p}}%</b> correct! </p>
+    <br>
+    <p class="center h3 text-center" >Thanks for playing!</p>
+    <input type="image" src="{% static 'restart.png' %}" alt="Let's Go!" height="128px" class= "center_img" onclick="window.location.href='{% url 'index' %}'">
+    <p class="center h3 text-center">Play again</p>
+
+    <br>
+    <p class="center h4 text-center">Experiment made by <br><u><a href="https://www.linkedin.com/in/benfire/">Ben Feuerstein</a></u></p>
+    <br>
+    <p class="center h6 text-center">Made using <b>Python</b> and <b>Javascript</b>, with the <b>Tensorflow</b> and <b>Django</b> librarys, hosted with <b>Heroku</b> and <b>Amazon S3</b></p>
+</div>
+
+<script> 
+    correct_text = document.getElementById("correct_text")
+    {{correct}}==1 ? correct_text.innerHTML = "I knew it!" : correct_text.innerHTML = "Oh well... I'll keep learning to get better at this!"
+</script>
+{% endblock %}

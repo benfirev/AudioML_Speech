@@ -1,0 +1,233 @@
+{% extends "speech/header.html" %}
+{% block content %}
+{% load static %}
+
+
+<div class="container" id="main_container">
+    <div id="play_screen">
+        <div id="not_wiki" style="display:block;height:250px">
+            <div class="row" id="init_info_row">
+                <p class="init_info col-12 text-center"><br>Below are 2 Wikipedia articles. <br>Choose <b>one of them</b>, click the button and read it out loud.<br>I'll try to figure out the language you spoke!<p>
+            </div>
+            <div class="row" id="info_row">
+                <div class="col text-center">
+                    <h1 id="timer" class="text-center"></h1>
+                    <h6 id="timer_reminder" style="display:none">Remember, you need to read only <b>one</b> of the paragraphs below: <br></h6>
+                    <button id="go" class="btn btn-primary ">I'm ready - Let's go!</button>
+                    <p id="mic-access-warning" class="text-center text-muted" style="margin-top:15px;font-size:0.8rem">You will be asked to allow microphone access.</p>
+                </div>
+            </div>
+            <div id="rec_progress_container" class="col text-center" style="display:none">
+
+                <div class="progress" >
+                    <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width:0%"
+                        aria-valuenow="0" aria-valuemin="0" aria-valuemax="10" id="rec_progress">
+                    </div>
+                </div> 
+                <img src="{% static 'mic.png' %}" id="mic_rec_icon" alt="recording..." height="128px" style="display:none;"  class="center_img"/>
+            </div>
+        </div>            
+        <div class="row" id="wikis" style="display:static">
+            <div class="col-6" style="border-right:1px solid #ccc">
+                <!--
+                <h4 id="eng_title" style="text-align: left; "></h4>
+                -->
+                <p id="eng_text" ></p>
+            </div>
+            <div class="col-6">
+                <!--
+                <h4 id="heb_title" dir="rtl" style="text-align: right;"></h4>
+                -->
+                <p id="heb_text" dir="rtl" style="text-align:right;"></p>
+            </div>
+        </div>
+    </div>
+    <br>
+    <p class="text-muted" id="rec_warning" style="font-size:0.6rem;position:fixed;bottom:0;left:50%;transform: translate(-50%, 0%);text-align:center">Your recording will be stored to train the system<p>
+    <div id="loading" class="col text-center" style="display:none">
+        <img src="{% static 'loading.gif' %}" alt="loading..." class="center_img" />
+        <h1>Processing...</h1>
+    </div>
+    <div id="guess_screen" style="display:none">
+        <p class="h3 text-center" id="answer_text" class="col text-center"></p>
+        <br><br>
+        <div class="col text-center"> 
+            <button type="button" id="correct_button" class="btn btn-success">Correct!</button>
+            <button type="button" id="incorrect_button" class="btn btn-danger">Incorrect!</button>
+        </div>
+    </div>
+
+</div>
+<script src="https://cdn.WebRTC-Experiment.com/RecordRTC.js"></script>
+<script>
+    load_wikis()
+    go_button = document.getElementById("go")
+    timer_text = document.getElementById("timer")
+    rec_progress = document.getElementById("rec_progress")
+    rec_progress_container = document.getElementById("rec_progress_container")
+    info_row = document.getElementById("info_row")
+    play_screen = document.getElementById("play_screen");
+    secs_to_record = 5;
+    pre_rec_countdown_secs = 3;
+
+    
+    go_button.onclick = e => {
+        navigator.mediaDevices.getUserMedia({audio: true})
+            .then(async function (stream) {
+                //start recording, using RecordRTC-StereoAudioRecorder and not HTML5 native MediaStream for iOS compatibility
+                rec = RecordRTC(stream, {type: 'audio',mimeType:'audio/webm',recorderType: StereoAudioRecorder});
+                start_pre_rec_sequence();
+                }).catch(err => alert(err));
+    }
+    async function start_pre_rec_sequence() {
+        //start countdonw for recording
+        document.getElementById("rec_warning").style.display="none"
+        go_button.style.display = "none"
+        document.getElementById("mic-access-warning").style.display="none"
+        document.getElementById("not_wiki").removeChild(document.getElementById("init_info_row"))
+        let init_countdown_promise = new Promise((resolve, reject) => {
+            count = pre_rec_countdown_secs
+            timer_text.innerHTML = count + "..."
+            counter = setInterval(pre_rec_timer, 1000)
+            document.getElementById("timer_reminder").style.display="block"
+            function pre_rec_timer() {
+                count--;
+                if (count <= 0) {
+                    clearInterval(counter)
+                    resolve()
+                }
+                timer_text.innerHTML = count + "..."
+
+            }
+        });
+
+        init_countdown_promise.then(
+            function (resolve) {
+                start_rec_sequence()
+            })
+
+    }
+    async function start_rec_sequence() {
+        //start recording
+        document.getElementById("mic_rec_icon").style = "display:block"
+        document.getElementById("timer_reminder").style.display="none"
+        timer_text.innerHTML = "<b>Recording...</b>"
+        begin_recording()
+
+        let rec_promise = new Promise((resolve, reject) => {
+            count = secs_to_record + 1;
+            counter = setInterval(rec_timer, 1000)
+
+            rec_progress_container.style.display = "block"
+            rec_progress.setAttribute("aria-valuenow", count)
+            rec_progress.style.width = "0%"
+
+            function rec_timer() {
+                count--;
+                if (count <= 0) {
+                    clearInterval(counter)
+                    resolve()
+                }
+                rec_progress.setAttribute("aria-valuenow", count)
+                rec_progress.style.width = ((secs_to_record - count + 1) * (100 / secs_to_record)) + "%"
+            }
+
+        });
+
+        rec_promise.then(
+            function (resolve) {
+                stop_recording()
+                rec_progress_container.style.display = "none"
+                timer_text.innerHTML = ''
+                document.getElementById("wikis").style.display="none"
+                document.getElementById("loading").style.display="block"
+                document.getElementById("not_wiki").style.display="none"
+            })
+    }
+
+    function sendData(data) {
+        //send recording over XMLHttpRequest connection
+        console.log(data)
+        const form_data = new FormData();
+        file_guid = "{{audio_guid}}" //audio guid generated originally from backend, saved for file-tracking
+        var file = new File([data], file_guid + ".ogg") //file generated, with .ogg suffix, (converted to wav later in backend)
+
+        form_data.append("audio_blob", file) 
+        form_data.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+
+        const xhr = new XMLHttpRequest();
+        xhr.open("POST", "/speech/record", true)
+        xhr.send(form_data)
+
+        xhr.onload = function (data) {
+            console.log(xhr.response)
+            init_predict_sequence(xhr.response) //when this request gets a response (the prediction), display to user
+        }
+        console.log(file)
+    }
+
+    function init_predict_sequence(lang_str) {
+
+        document.getElementById("loading").style.display="none"
+        answer_text = document.getElementById("answer_text")
+        answer_text.innerHTML = "I think you spoke in <b>" + lang_str + "</b>"
+        document.getElementById("guess_screen").style = "display:block"
+
+        correct_button = document.getElementById("correct_button")
+        incorrect_button = document.getElementById("incorrect_button")
+        correct_button.onclick = e => {
+            submit_answer("True",lang_str)
+        }
+        incorrect_button.onclick = e => {
+            submit_answer("False",lang_str)
+        }
+
+
+
+    }
+
+    function submit_answer(correct_py_str, detection) {
+
+        const form_data = new FormData();
+        form_data.append("correct", correct_py_str);
+        form_data.append("detection", detection);
+        form_data.append("audio_guid", "{{audio_guid}}.ogg");
+
+        form_data.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+        const xhr = new XMLHttpRequest();
+        xhr.open("POST", "/speech/record", true)
+        xhr.send(form_data)
+        
+        correct_py_str == "True" ? window.location.href = '{% url 'endscreen' correct="1" %}' : window.location.href = '{% url 'endscreen' correct="0" %}';
+    
+
+    }
+
+    function begin_recording() {
+        console.log('Begin Recording');
+        audioChunks = [];
+        rec.startRecording();
+    }
+
+    function stop_recording() {
+        console.log('Stop Recording');
+        rec.stopRecording(function(){
+        let blob = rec.getBlob();
+        sendData(blob)
+
+        });
+
+    }
+
+
+    function load_wikis() {
+        {% include "speech/wiki_paths.js" %}
+        rand_artice_index = Math.floor(Math.random() * wiki_data.length)
+        document.getElementById("eng_text").innerHTML = wiki_data[rand_artice_index]["English"]
+        document.getElementById("heb_text").innerHTML = wiki_data[rand_artice_index]["Hebrew"]
+        //document.getElementById("heb_title").innerHTML = wiki_data[rand_artice_index]["HebrewTitle"]
+        //document.getElementById("eng_title").innerHTML = wiki_data[rand_artice_index]["EnglishTitle"]
+    }
+
+</script>
+{% endblock %}
